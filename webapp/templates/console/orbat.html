@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Force hierarchy · AI-DSSW{% endblock %}
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+    <div><div class="hud-font text-muted2 small">ORDER OF BATTLE REGISTER</div><h2 class="hud-font mb-0">Force hierarchy</h2></div>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <select class="form-select form-select-sm" id="view" style="width:170px"><option value="TREE">Tree view</option><option value="FORCE">Forces</option><option value="UNIT">Units</option><option value="SUBUNIT">SubUnits</option></select>
+      <button class="btn btn-tac btn-sm" id="add-land"><i class="bi bi-plus-lg"></i> Land</button>
+    </div>
+  </div>
+  <div class="row g-2 mb-3" id="totals"></div>
+  <div class="panel"><div class="panel-body" id="tree"></div></div>
+  <p class="small text-muted2 mt-2">Lands → Forces (by typology) → Units → SubUnits. Maintained independently of any scenario. Duplicate names under the same parent are rejected.</p>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/orbat.js' %}"></script>{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{{ scenario.name }} · Setup · AI-DSSW{% endblock %}
+{% block cesium_css %}<link href="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Widgets/widgets.css" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" id="app" data-sid="{{ scenario.id }}">
+  <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+    <div><div class="hud-font text-muted2 small">SCENARIO SETUP · ROOM <span class="mono text-white">{{ scenario.room_code }}</span></div>
+      <h3 class="hud-font mb-0" id="title">{{ scenario.name }}</h3></div>
+    <span class="status-pill badge-amber ms-2" id="status">{{ scenario.status }}</span>
+    <div class="ms-auto d-flex gap-2">
+      <a class="btn btn-tac" href="/console/"><i class="bi bi-arrow-left"></i> Command Panel</a>
+      <a class="btn btn-tac" href="/console/scenario/{{ scenario.id }}/live/"><i class="bi bi-display"></i> Live monitor</a>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-xl-4 col-lg-5">
+      <ul class="nav nav-tabs setup-tabs small" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-terrain">1 Terrain</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-zones">2 Zones</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-inv">3 Inventory</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-ready">4 Readiness</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-keys">5 Force keys</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-replay">6 Replay</button></li>
+      </ul>
+      <div class="tab-content panel border-top-0 rounded-top-0 p-3 scroll" style="max-height:calc(100vh - 190px)">
+        <div class="tab-pane fade show active" id="t-terrain">
+          <div id="theatre-info" class="small mb-3"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label small">Time of day</label><select class="form-select form-select-sm" id="tod"><option>DAWN</option><option>DAY</option><option>EVENING</option><option>NIGHT</option><option>DYNAMIC</option></select></div>
+            <div class="col-6"><label class="form-label small">Weather</label><select class="form-select form-select-sm" id="weather"></select></div>
+            <div class="col-6"><label class="form-label small">Grid cell (m)</label><input class="form-control form-control-sm" type="number" id="cell" min="25" max="200"></div>
+            <div class="col-6"><label class="form-label small">AO half-size (km)</label><input class="form-control form-control-sm" type="number" id="ao" min="5" max="40"></div>
+          </div>
+          <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-tac btn-sm" id="ingest"><i class="bi bi-cloud-download"></i> Ingest real terrain</button>
+            <button class="btn btn-outline-secondary btn-sm" id="ingest-flat">Flat fallback</button>
+          </div>
+          <div id="terrain-stats" class="small"></div>
+          <div class="btn-group btn-group-sm my-2" id="layer-btns">
+            <button class="btn btn-tac active" data-layer="relief">Relief</button><button class="btn btn-tac" data-layer="ground">Ground type</button><button class="btn btn-tac" data-layer="slope">Slope</button>
+          </div>
+          <img id="layer-img" class="w-100 rounded border" style="border-color:var(--line)!important;image-rendering:pixelated" alt="">
+          <div class="small text-muted2 mt-2">Click the map to inspect elevation, slope, class, ground, mobility and concealment at any point.</div>
+          <div id="probe" class="small mono mt-2"></div>
+        </div>
+        <div class="tab-pane fade" id="t-zones">
+          <p class="small text-muted2">Draw each force's deployment zone directly on the map. <b>Vertices</b>: click points, double-click to finish. <b>Lasso</b>: press and drag a freehand outline. Mobility corridors are regenerated automatically.</p>
+          <div class="vstack gap-2">
+            <div class="d-flex gap-2 align-items-center"><span class="hud-font side-blue fw-bold" style="width:56px">BLUE</span>
+              <button class="btn btn-sm btn-tac" data-draw="BLUE" data-method="vertices"><i class="bi bi-bezier2"></i> Vertices</button>
+              <button class="btn btn-sm btn-tac" data-draw="BLUE" data-method="lasso"><i class="bi bi-lasso"></i> Lasso</button>
+              <button class="btn btn-sm btn-outline-danger" data-erase="BLUE"><i class="bi bi-eraser"></i></button><span class="small text-muted2" id="z-BLUE"></span></div>
+            <div class="d-flex gap-2 align-items-center"><span class="hud-font side-red fw-bold" style="width:56px">RED</span>
+              <button class="btn btn-sm btn-tac" data-draw="RED" data-method="vertices"><i class="bi bi-bezier2"></i> Vertices</button>
+              <button class="btn btn-sm btn-tac" data-draw="RED" data-method="lasso"><i class="bi bi-lasso"></i> Lasso</button>
+              <button class="btn btn-sm btn-outline-danger" data-erase="RED"><i class="bi bi-eraser"></i></button><span class="small text-muted2" id="z-RED"></span></div>
+          </div>
+          <div class="small mt-3" id="corridor-info"></div>
+        </div>
+        <div class="tab-pane fade" id="t-inv">
+          <p class="small text-muted2">Allowed roster per force. Turn a force to <b>unrestricted</b> for an open order of battle. Changes apply to the next lobby/run.</p>
+          <div class="d-flex gap-3 mb-2">
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="unr-BLUE"><label class="form-check-label small" for="unr-BLUE">BLUE unrestricted</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="unr-RED"><label class="form-check-label small" for="unr-RED">RED unrestricted</label></div>
+          </div>
+          <table class="table table-sm small"><thead><tr><th>Platform</th><th>Class</th><th class="side-blue">BLUE</th><th class="side-red">RED</th></tr></thead><tbody id="inv-rows"></tbody></table>
+          <button class="btn btn-tac btn-sm" id="inv-save"><i class="bi bi-save"></i> Save inventory</button>
+        </div>
+        <div class="tab-pane fade" id="t-ready">
+          <div id="checks"></div>
+          <div class="d-flex gap-2 mt-3 flex-wrap">
+            <button class="btn btn-tac" id="open"><i class="bi bi-door-open"></i> Open lobby (new run)</button>
+            <button class="btn btn-outline-danger" id="close"><i class="bi bi-door-closed"></i> Close room</button>
+            <button class="btn btn-tac" id="brief"><i class="bi bi-cpu"></i> Generate AI briefing</button>
+          </div>
+          <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="ai-blue"><label class="form-check-label small" for="ai-blue">Allow AI-vs-AI demo start (no BLUE humans)</label></div>
+          <pre class="small mt-3" style="white-space:pre-wrap" id="briefing"></pre>
+        </div>
+        <div class="tab-pane fade" id="t-keys">
+          <label class="form-label small">RED player</label>
+          <select class="form-select form-select-sm mb-2" id="red-mode"><option value="AI">AI Red player (fully autonomous)</option><option value="MIXED">Humans + AI fill</option><option value="HUMAN">Human players</option></select>
+          <button class="btn btn-tac btn-sm mb-3" id="gen-keys"><i class="bi bi-key"></i> Generate force keys</button>
+          <div class="small text-muted2">Room ID</div><div class="key-box mb-2" id="k-room">—</div>
+          <div class="small side-blue">BLUE force key</div><div class="key-box mb-2 d-flex"><span id="k-BLUE">—</span><button class="btn btn-sm btn-link ms-auto p-0" data-copy="k-BLUE"><i class="bi bi-clipboard"></i></button></div>
+          <div class="small side-red">RED force key</div><div class="key-box mb-2 d-flex"><span id="k-RED">—</span><button class="btn btn-sm btn-link ms-auto p-0" data-copy="k-RED"><i class="bi bi-clipboard"></i></button></div>
+          <div class="small text-muted2">Players open <span class="mono" id="k-url"></span> and enter the Room ID + key. Up to 4 players per force; every empty formation slot is commanded by the AI.</div>
+        </div>
+        <div class="tab-pane fade" id="t-replay"><div id="runs" class="small"></div></div>
+      </div>
+    </div>
+    <div class="col-xl-8 col-lg-7">
+      <div class="setup-map"><div id="globe" style="position:absolute;inset:0"></div>
+        <div class="map-toolbar">
+          <button class="btn btn-sm btn-tac" id="m-home"><i class="bi bi-house"></i></button>
+          <button class="btn btn-sm btn-tac" id="m-2d">2D/3D</button>
+          <div class="input-group input-group-sm" style="width:230px"><input class="form-control" id="m-search" placeholder="Grid / lat,lon / place"><button class="btn btn-tac" id="m-go"><i class="bi bi-search"></i></button></div>
+        </div>
+        <div class="mode-banner" id="draw-banner" style="display:none;top:56px"></div>
+        <div class="legend panel px-2 py-1"><span style="background:#36b8ff"></span>BLUE zone <span style="background:#ff4b3e;margin-left:8px"></span>RED zone <span style="background:#ffe066;margin-left:8px"></span>Avenues <span style="background:#ffd166;margin-left:8px"></span>Border <span style="background:#ff8c42;margin-left:8px"></span>LoC</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/';</script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Cesium.js"></script>
+<script type="module" src="{% static 'js/setup.js' %}"></script>
+{% endblock %}

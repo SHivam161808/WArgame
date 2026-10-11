@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Command Panel · AI-DSSW{% endblock %}
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="d-flex align-items-center mb-3">
+    <div><div class="hud-font text-muted2 small">EXERCISE CONTROLLER</div><h2 class="hud-font mb-0">Command Panel</h2></div>
+    <button class="btn btn-success hud-font ms-auto" id="new-skirmish" onclick="newSkirmish()" title="New procedural village: 4 v 4, bots fill empty places"><i class="bi bi-house-door"></i> Village Skirmish</button>
+    <button class="btn btn-tac" data-bs-toggle="modal" data-bs-target="#new"><i class="bi bi-plus-lg"></i> New scenario</button>
+  </div>
+  <div class="panel">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="small text-muted2"><tr><th>Scenario</th><th>Theatre</th><th>Room</th><th>Tick / duration</th><th>RED</th><th style="width:220px">Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="7" class="text-muted2">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="new" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content panel">
+    <form id="new-form">
+    <div class="modal-header"><h5 class="modal-title hud-font">NEW SCENARIO</h5></div>
+    <div class="modal-body row g-3">
+      <div class="col-md-8"><label class="form-label small">Designation</label><input class="form-control" name="name" required placeholder="Exercise Desert Storm-1"></div>
+      <div class="col-md-4"><label class="form-label small">Theatre</label><select class="form-select" name="theatre" id="theatre"></select></div>
+      <div class="col-12"><label class="form-label small">Description</label><textarea class="form-control" name="description" rows="2"></textarea></div>
+      <div class="col-md-4"><label class="form-label small">Time of day</label><select class="form-select" name="time_of_day"><option>DAWN</option><option selected>DAY</option><option>EVENING</option><option>NIGHT</option><option>DYNAMIC</option></select></div>
+      <div class="col-md-4"><label class="form-label small">Weather</label><select class="form-select" name="weather" id="weather"></select></div>
+      <div class="col-md-4"><label class="form-label small">RED player</label><select class="form-select" name="red_mode"><option value="AI">AI Red player</option><option value="MIXED">Humans + AI fill</option><option value="HUMAN">Human</option></select></div>
+      <div class="col-md-3"><label class="form-label small">Sim seconds per tick</label><input class="form-control" type="number" step="0.05" min="0.05" max="10" name="tick_s" value="0.25"></div>
+      <div class="col-md-3"><label class="form-label small">Duration (sim minutes)</label><input class="form-control" type="number" min="1" max="600" name="duration_min" value="45"></div>
+      <div class="col-md-3"><label class="form-label small">Auto cadence (ms)</label><input class="form-control" type="number" min="20" max="10000" name="cadence_ms" value="250"></div>
+      <div class="col-md-3"><label class="form-label small">AO half-size (km)</label><input class="form-control" type="number" min="5" max="40" name="ao_half_km" value="18"></div>
+      <div class="col-md-4"><div class="form-check form-switch mt-4"><input class="form-check-input" type="checkbox" name="fog_enabled" checked id="fog"><label class="form-check-label" for="fog">Fog of war</label></div></div>
+      <div class="col-md-8 small text-muted2 pt-3">Finer ticks give smoother driving; the tick count limit is <code>duration ÷ tick</code>. The battle ends automatically at the time limit.</div>
+      <div class="col-12 text-danger small" id="new-err"></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-tac">Create</button></div>
+    </form>
+  </div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/console.js' %}"></script>{% endblock %}

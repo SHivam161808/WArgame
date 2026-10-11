@@ -1,0 +1,59 @@
+{% extends "base.html" %}{% load static %}
+{% block content %}
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container-xxl position-relative py-5">
+    <div class="row g-5 align-items-center">
+      <div class="col-lg-7">
+        <div class="hud-font text-muted2 mb-2" style="letter-spacing:.25em">TERRAIN-AWARE ARMOURED ENGAGEMENT &amp; HVT NEUTRALISATION</div>
+        <h1>ARMOURED BATTLE<br><span style="color:var(--cyan)">CONSOLE</span></h1>
+        <p class="lead mt-3">Command a futuristic armoured battle group on real India–Pakistan border terrain. Up to four commanders per force, AI fills every empty slot, every tick is recorded for rewind, replay and AI-assisted after-action review.</p>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <span class="theatre-chip"><i class="bi bi-sun text-amber"></i> Thar Desert · Summer</span>
+          <span class="theatre-chip"><i class="bi bi-cloud-rain text-blue"></i> Punjab · Monsoon</span>
+          <span class="theatre-chip"><i class="bi bi-triangle"></i> Kashmir LoC · Mountains</span>
+          <span class="theatre-chip"><i class="bi bi-snow"></i> Kargil–Dras · Winter Ice</span>
+          <span class="theatre-chip"><i class="bi bi-water"></i> Rann of Kutch · Marsh</span>
+        </div>
+        <div class="row g-3 mt-4 small text-muted2">
+          <div class="col-sm-4"><i class="bi bi-people text-blue"></i> 4 v 4 rooms with AI fill-in</div>
+          <div class="col-sm-4"><i class="bi bi-joystick text-amber"></i> Drive &amp; gun any vehicle</div>
+          <div class="col-sm-4"><i class="bi bi-cpu text-red"></i> AI Red agent &amp; advisor</div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="panel">
+          <div class="panel-head"><i class="bi bi-door-open"></i> Join a battle</div>
+          <div class="panel-body">
+            <form id="join" class="vstack gap-3">
+              <div><label class="form-label small text-muted2">Room ID</label><input class="form-control form-control-lg mono text-uppercase" id="room" value="{{ room }}" placeholder="e.g. X83S6W" required></div>
+              <div><label class="form-label small text-muted2">Force key</label><input class="form-control mono text-uppercase" id="key" placeholder="BLU-XXXXXX-XXXXXX" required></div>
+              <div><label class="form-label small text-muted2">Callsign</label><input class="form-control" id="call" maxlength="24" placeholder="Tiger-1" required></div>
+              <div class="text-danger small" id="err"></div>
+              <button class="btn btn-tac btn-lg"><i class="bi bi-box-arrow-in-right"></i> Enter battle</button>
+            </form>
+            <div class="small text-muted2 mt-3">Get the Room ID and your force key from the Exercise Controller. The first player of a force becomes its Commander.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+import { api } from '{% static "js/api.js" %}';
+const $ = (s) => document.querySelector(s);
+$('#call').value = localStorage.getItem('wg_callsign') || '';
+$('#join').onsubmit = async (e) => {
+  e.preventDefault();
+  $('#err').textContent = '';
+  try {
+    const r = await api('join/', { method: 'POST', body: { room_code: $('#room').value.trim(), force_key: $('#key').value.trim(), callsign: $('#call').value.trim() } });
+    localStorage.setItem('wg_callsign', $('#call').value.trim());
+    localStorage.setItem(`wg_token_${r.room_code}`, r.token);
+    location.href = `/play/${r.room_code}/`;
+  } catch (ex) { $('#err').textContent = ex.message; }
+};
+</script>
+{% endblock %}

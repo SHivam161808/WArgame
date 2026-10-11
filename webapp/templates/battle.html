@@ -1,0 +1,229 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{% if mode == 'admin' %}Live Monitor — {{ scenario.name }}{% else %}Battle {{ room_code }}{% endif %} · AI-DSSW{% endblock %}
+{% block cesium_css %}<link href="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Widgets/widgets.css" rel="stylesheet">{% endblock %}
+{% block body_class %}fullscreen{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<div class="battle-wrap" id="app" data-mode="{{ mode }}" data-room="{% if mode == 'admin' %}{{ scenario.room_code }}{% else %}{{ room_code }}{% endif %}" data-scenario="{% if scenario %}{{ scenario.id }}{% endif %}">
+  <div id="globe"></div>
+  <div id="ground" style="position:absolute;inset:0;display:none"></div>
+  <div class="attrib">Imagery: Sentinel-2 cloudless (EOX, CC BY 4.0) · Elevation: AWS Terrain Tiles · Borders: Natural Earth</div>
+
+  <!-- top status bar -->
+  <div class="ov ov-top" id="topbar">
+    <div class="statbox"><div class="k">Phase</div><div class="v" id="s-phase">—</div></div>
+    <div class="statbox"><div class="k">Time left</div><div class="v mono" id="s-time">—</div></div>
+    <div class="statbox"><div class="k">Tick</div><div class="v mono" id="s-tick">0</div></div>
+    <div class="statbox"><div class="k side-blue">Blue kills</div><div class="v side-blue" id="s-kb">0</div></div>
+    <div class="statbox"><div class="k side-red">Red kills</div><div class="v side-red" id="s-kr">0</div></div>
+    <div class="statbox"><div class="k">Own HVT</div><div class="v" id="s-hvt-own">—</div></div>
+    <div class="statbox"><div class="k">Enemy HVT</div><div class="v" id="s-hvt-enemy">UNKNOWN</div></div>
+    <div class="statbox"><div class="k">Force</div><div class="v" id="s-force">—</div></div>
+  </div>
+
+  <!-- left: roster + selection -->
+  <div class="ov ov-left">
+    <div class="panel d-flex flex-column" style="min-height:0;flex:1 1 auto">
+      <div class="panel-head"><i class="bi bi-list-task"></i> <span id="roster-title">Order of battle</span><span class="ms-auto badge badge-blue" id="me-badge"></span></div>
+      <div class="scroll" id="roster" style="flex:1 1 auto;min-height:120px"></div>
+    </div>
+    <div class="panel" id="sel-panel" style="display:none">
+      <div class="panel-head"><i class="bi bi-crosshair"></i> <span id="sel-title">Selected</span><button class="btn btn-sm btn-link ms-auto p-0 text-muted2" id="sel-close"><i class="bi bi-x-lg"></i></button></div>
+      <div class="panel-body small" id="sel-body"></div>
+    </div>
+  </div>
+
+  <!-- right: advisor + feed -->
+  <div class="ov ov-right">
+    <div class="panel" id="advisor-panel">
+      <div class="panel-head"><i class="bi bi-cpu"></i> AI Tactical Advisor <span class="ms-auto small" id="adv-tempo"></span></div>
+      <div class="panel-body small scroll" style="max-height:44vh" id="advisor"><div class="text-muted2">Assessments arrive automatically during the battle, or request one now.</div></div>
+      <div class="px-2 pb-2"><button class="btn btn-tac btn-sm w-100" id="adv-req"><i class="bi bi-lightning-charge"></i> Request threat assessment</button></div>
+    </div>
+    <div class="panel d-flex flex-column" style="min-height:0;flex:1 1 auto">
+      <div class="panel-head"><i class="bi bi-broadcast"></i> Contacts &amp; kill feed</div>
+      <div class="panel-body scroll" id="feed" style="flex:1 1 auto;min-height:100px"></div>
+    </div>
+  </div>
+
+  <!-- bottom: timeline + controls + map tools -->
+  <div class="ov ov-bottom">
+    <div class="panel timeline">
+      <div class="btn-group" id="pace" role="group">
+        <button class="btn btn-tac btn-sm tool-btn" id="c-start" title="Start / Ready"><i class="bi bi-flag"></i></button>
+        <button class="btn btn-tac btn-sm tool-btn" id="c-pause" title="Pause / resume"><i class="bi bi-pause-fill"></i></button>
+        <button class="btn btn-tac btn-sm tool-btn" id="c-step" title="Advance one tick"><i class="bi bi-skip-end-fill"></i></button>
+        <button class="btn btn-tac btn-sm" id="c-auto" title="Continuous Auto">AUTO</button>
+        <select class="form-select form-select-sm" id="c-speed" style="width:86px" title="Speed">
+          <option value="0.5">×0.5</option><option value="1" selected>×1</option><option value="2">×2</option><option value="4">×4</option><option value="8">×8</option>
+        </select>
+      </div>
+      <span class="mono small text-muted2" id="tl-left">t+0s</span>
+      <input type="range" id="tl" min="0" max="0" value="0" step="1" title="Rewind while live">
+      <button class="btn btn-sm btn-tac-red" id="tl-live" style="display:none"><i class="bi bi-broadcast"></i> LIVE</button>
+      <span class="mono small text-muted2" id="tl-right">0</span>
+      <div class="vr"></div>
+      <div class="input-group input-group-sm" style="width:210px">
+        <input class="form-control" id="search" placeholder="Grid 123 456, lat,lon, place">
+        <button class="btn btn-tac" id="search-go"><i class="bi bi-search"></i></button>
+      </div>
+      <button class="btn btn-tac btn-sm tool-btn" id="t-home" title="Frame the AO"><i class="bi bi-house"></i></button>
+      <button class="btn btn-tac btn-sm" id="t-2d" title="2D / 3D">2D/3D</button>
+      <div class="dropup">
+        <button class="btn btn-tac btn-sm dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-layers"></i></button>
+        <div class="dropdown-menu dropdown-menu-end p-2 small" style="min-width:210px">
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="l-zones" checked><label class="form-check-label" for="l-zones">Zones</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="l-corridors" checked><label class="form-check-label" for="l-corridors">Avenues of approach</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="l-grid" checked><label class="form-check-label" for="l-grid">Numbered grid</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="l-borders" checked><label class="form-check-label" for="l-borders">Borders &amp; LoC</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="l-labels" checked><label class="form-check-label" for="l-labels">Unit labels</label></div>
+          <div class="form-check form-switch admin-only"><input class="form-check-input" type="checkbox" id="l-fog"><label class="form-check-label" for="l-fog">Fog of war (players)</label></div>
+          <hr class="my-2"><label class="form-label mb-1">Imagery</label>
+          <select class="form-select form-select-sm" id="l-imagery"><option value="s2">Sentinel-2 cloudless</option><option value="osm">OpenStreetMap</option></select>
+          <hr class="my-2"><label class="form-label mb-1">Graphics quality (3D view)</label>
+          <select class="form-select form-select-sm" id="l-quality"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low (faster)</option></select>
+          <hr class="my-2"><label class="form-label mb-1">Mouse sensitivity</label>
+          <input type="range" class="form-range" id="l-sens" min="0.3" max="3" step="0.1">
+          <label class="form-label mb-1">Sound volume</label>
+          <input type="range" class="form-range" id="l-vol" min="0" max="1" step="0.05">
+          <hr class="my-2"><label class="form-label mb-1">Sensor view</label>
+          <select class="form-select form-select-sm" id="l-sensor"><option>DAY</option><option value="NV">NIGHT VISION</option><option>THERMAL</option></select>
+        </div>
+      </div>
+      <button class="btn btn-tac btn-sm" id="t-mode" title="Toggle 3D battle view / map (M)"><i class="bi bi-badge-3d"></i> 3D VIEW (M)</button>
+      <button class="btn btn-tac btn-sm" id="t-free" title="Free camera"><i class="bi bi-camera-video"></i></button>
+      <button class="btn btn-tac btn-sm" id="t-view" title="Next camera view (C) while spectating or driving"><i class="bi bi-camera-reels"></i> VIEW</button>
+      <span class="small text-muted2 mono" id="fps"></span>
+    </div>
+  </div>
+
+  <div class="alert-stack" id="alerts"></div>
+  <div class="mode-banner" id="mode-banner" style="display:none"></div>
+
+  <!-- direct control HUD -->
+  <div id="hud">
+    <canvas id="scope-canvas"></canvas>
+    <div class="hud-panel hud-top"><div class="lbl">HEADING</div><div style="font-size:1.4rem;font-weight:700" id="h-heading">000°</div><div class="lbl hud-view" id="h-view">VIEW · CHASE</div></div>
+    <div class="hud-panel hud-left">
+      <div class="lbl">SPEED KM/H · <span id="h-dir">NEUTRAL</span></div><div class="big" id="h-speed">0</div>
+      <div class="lbl" id="h-cap">MAX 0</div>
+      <div class="hud-gauge"><i id="h-thr" style="width:0"></i></div>
+      <div class="lbl" id="h-slope">SLOPE 0°</div>
+      <div class="lbl" style="margin-top:4px">GROUND · <span id="h-ground">—</span></div>
+      <div class="lbl" style="margin-top:10px"><span id="h-hp-l">HULL</span> <span id="h-hp-v"></span></div><div class="hud-gauge" id="h-hp"><i></i></div>
+      <div id="h-fuel-row"><div class="lbl">FUEL <span id="h-fuel-v"></span></div><div class="hud-gauge" id="h-fuel"><i></i></div></div>
+      <div class="lbl">MORALE <span id="h-morale-v"></span></div><div class="hud-gauge" id="h-morale"><i></i></div>
+      <div class="hud-flags" id="h-flags"></div>
+    </div>
+    <div class="hud-panel hud-right">
+      <div class="lbl">WEAPONS</div><div class="hud-weapons" id="h-weapons"></div>
+      <div class="lbl" style="margin-top:8px" id="h-kills">KILLS 0</div>
+      <div class="lbl" style="margin-top:10px">SQUAD</div><div class="hud-squad" id="h-squad"></div>
+    </div>
+    <div class="hud-prompt" id="h-prompt"></div>
+    <div class="hud-respawn" id="h-respawn"></div>
+    <div class="hud-help" id="h-help"></div>
+  </div>
+
+  <!-- team chat (Enter to type, Shift+Enter all-chat) -->
+  <div id="chat" class="chat-box">
+    <div id="chat-log" class="chat-log"></div>
+    <input id="chat-in" class="chat-in" maxlength="200" placeholder="Team chat — Enter to send, Esc to cancel" autocomplete="off">
+  </div>
+
+  <!-- deployment lobby -->
+  <div class="lobby" id="lobby" style="display:none">
+    <div class="container-xxl">
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <div>
+          <div class="hud-font text-muted2 small">DEPLOYMENT · ROOM <span class="mono text-white" id="lb-room"></span></div>
+          <h2 class="hud-font mb-0" id="lb-title">—</h2>
+          <div class="text-muted2 small" id="lb-sub"></div>
+        </div>
+        <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+          <span class="badge badge-amber" id="lb-ready-b">BLUE: not ready</span>
+          <span class="badge badge-amber" id="lb-ready-r">RED: not ready</span>
+          <button class="btn btn-tac" id="lb-suggest"><i class="bi bi-cpu"></i> AI formation suggestion</button>
+          <button class="btn btn-tac" id="lb-hvt"><i class="bi bi-geo"></i> Place HVT</button>
+          <button class="btn btn-tac" id="lb-map"><i class="bi bi-map"></i> View map</button>
+          <button class="btn btn-lg btn-success hud-font px-4" id="lb-ready"><i class="bi bi-check2-circle"></i> READY</button>
+          <button class="btn btn-lg btn-warning hud-font px-3 admin-only" id="lb-force"><i class="bi bi-play-fill"></i> Force start</button>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-xl-8">
+          <div class="panel mb-3"><div class="panel-head"><i class="bi bi-people"></i> <span id="lb-slots-title">Formation slots — up to 4 players per force; empty slots are commanded by the AI</span></div>
+            <div class="panel-body"><div class="row g-2" id="lb-slots"></div></div></div>
+          <div class="panel" id="lb-builder-panel"><div class="panel-head"><i class="bi bi-diagram-2"></i> Formation builder <span class="ms-auto small text-muted2" id="lb-inv"></span></div>
+            <div class="panel-body"><div class="row g-3" id="lb-forms"></div></div></div>
+        </div>
+        <div class="col-xl-4">
+          <div class="panel mb-3"><div class="panel-head"><i class="bi bi-file-earmark-text"></i> AI mission briefing</div>
+            <div class="panel-body small" style="white-space:pre-wrap" id="lb-brief"></div></div>
+          <div class="panel"><div class="panel-head"><i class="bi bi-info-circle"></i> How to play</div>
+            <div class="panel-body small text-muted2" id="lb-howto">
+              <ol class="ps-3 mb-0">
+                <li>Claim a formation slot. The first player of a force is its <b>Commander</b>.</li>
+                <li>Build each formation within the inventory, set doctrine and shape, then <b>Place</b> it inside your zone.</li>
+                <li>Place the HVT inside your zone and press <b>READY</b>. The battle starts when both forces are ready.</li>
+                <li>In battle: click a unit → plot routes, change doctrine, call fire missions, or <b>Take control</b> to drive and shoot it yourself.</li>
+                <li>Find and destroy the enemy HVT before the time limit while protecting your own.</li>
+              </ol>
+            </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- join modal -->
+  <div class="modal fade" id="join-modal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content panel">
+      <div class="modal-header"><h5 class="modal-title hud-font">JOIN BATTLE</h5></div>
+      <div class="modal-body">
+        <form id="join-form" class="vstack gap-2">
+          <div><label class="form-label small">Room ID</label><input class="form-control mono" id="j-room" required></div>
+          <div><label class="form-label small">Force key</label><input class="form-control mono" id="j-key" placeholder="BLU-XXXXXX-XXXXXX" required></div>
+          <div><label class="form-label small">Callsign</label><input class="form-control" id="j-call" maxlength="24" placeholder="e.g. Tiger-1" required></div>
+          <div class="text-danger small" id="j-err"></div>
+          <button class="btn btn-tac w-100 mt-2">Join</button>
+        </form>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- results modal -->
+  <div class="modal fade" id="result-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content panel">
+      <div class="modal-body p-4">
+        <div class="result-banner" id="r-banner">—</div>
+        <p class="text-center text-muted2 mb-4" id="r-reason"></p>
+        <div class="row g-2 mb-3" id="r-kpis"></div>
+        <div class="d-flex gap-2 justify-content-center">
+          <a class="btn btn-tac" id="r-aar" target="_blank"><i class="bi bi-bar-chart-line"></i> Results dashboard &amp; replay</a>
+          <button class="btn btn-tac" id="r-again"><i class="bi bi-arrow-repeat"></i> Play again</button>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- suggestion modal -->
+  <div class="modal fade" id="sug-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content panel">
+      <div class="modal-header"><h5 class="modal-title hud-font"><i class="bi bi-cpu"></i> AI FORMATION SUGGESTION</h5><span class="ms-2 badge badge-amber" id="sug-src"></span></div>
+      <div class="modal-body small"><p id="sug-why"></p><div id="sug-table"></div>
+        <div class="text-muted2">Advisory only — command authority remains with you. Accept to load it into the builder, then adjust as needed.</div></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Disregard</button>
+        <button class="btn btn-tac" id="sug-accept">Accept &amp; adjust</button>
+      </div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/';</script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Cesium.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<script type="module" src="{% static 'js/battle.js' %}"></script>
+{% endblock %}

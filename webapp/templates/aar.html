@@ -1,0 +1,72 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}After Action Review · AI-DSSW{% endblock %}
+{% block cesium_css %}<link href="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Widgets/widgets.css" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" id="app" data-bid="{{ battle.id }}">
+  <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+    <div><div class="hud-font text-muted2 small">AFTER ACTION REVIEW · RUN #{{ battle.run_no }}</div><h3 class="hud-font mb-0" id="title">—</h3></div>
+    <div class="ms-auto result-banner" style="font-size:1.8rem" id="banner"></div>
+  </div>
+  <div class="row g-3">
+    <div class="col-xl-7">
+      <div class="setup-map" style="height:62vh"><div id="globe" style="position:absolute;inset:0"></div>
+        <div class="map-toolbar">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-tac" data-cam="overview">Overview</button><button class="btn btn-tac" data-cam="BLUE">BLUE HVT</button>
+            <button class="btn btn-tac" data-cam="RED">RED HVT</button><button class="btn btn-tac" data-cam="follow">Follow selected</button><button class="btn btn-tac" data-cam="free">Free</button>
+          </div>
+        </div>
+        <div class="attrib">Sentinel-2 cloudless (EOX) · AWS Terrain Tiles · Natural Earth</div>
+      </div>
+      <div class="panel timeline mt-2">
+        <button class="btn btn-tac btn-sm tool-btn" id="back" title="Step back"><i class="bi bi-skip-start-fill"></i></button>
+        <button class="btn btn-tac btn-sm tool-btn" id="play" title="Play / pause"><i class="bi bi-play-fill"></i></button>
+        <button class="btn btn-tac btn-sm tool-btn" id="fwd" title="Step forward"><i class="bi bi-skip-end-fill"></i></button>
+        <select class="form-select form-select-sm" id="speed" style="width:90px"><option value="0.25">×0.25</option><option value="0.5">×0.5</option><option value="1">×1</option><option value="2">×2</option><option value="4" selected>×4</option><option value="8">×8</option><option value="16">×16</option><option value="32">×32</option></select>
+        <span class="mono small" id="t-now">0</span>
+        <input type="range" id="scrub" min="0" max="0" value="0">
+        <span class="mono small text-muted2" id="t-end">0</span>
+      </div>
+      <div class="panel mt-2"><div class="panel-head"><i class="bi bi-crosshair"></i> Selected <span class="ms-auto small text-muted2">click a unit in the replay</span></div><div class="panel-body small" id="sel">—</div></div>
+    </div>
+    <div class="col-xl-5">
+      <ul class="nav nav-tabs setup-tabs small">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#p-results">Results</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p-kills">Kill feed</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p-ask">Ask the Battle</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#p-brief">AI briefing</button></li>
+      </ul>
+      <div class="tab-content panel border-top-0 rounded-top-0 p-3 scroll" style="max-height:calc(100vh - 160px)">
+        <div class="tab-pane fade show active" id="p-results">
+          <p class="small text-muted2" id="reason"></p>
+          <div class="row g-2 mb-3" id="kpis"></div>
+          <div class="hud-font text-muted2 small">FORCE STRENGTH OVER TIME</div><div class="chart-box mb-3"><canvas id="c-strength"></canvas></div>
+          <div class="row g-3">
+            <div class="col-md-6"><div class="hud-font text-muted2 small">COMPARATIVE FORCE ASSESSMENT</div><div class="chart-box"><canvas id="c-radar"></canvas></div></div>
+            <div class="col-md-6"><div class="hud-font text-muted2 small">KILL-RATIO DECOMPOSITION</div><div class="chart-box"><canvas id="c-kills"></canvas></div></div>
+          </div>
+          <div class="hud-font text-muted2 small mt-3">ATTRITION BY UNIT CLASS</div><div class="chart-box mb-3"><canvas id="c-attrition"></canvas></div>
+          <div class="hud-font text-muted2 small">HVT HEALTH</div><div class="chart-box"><canvas id="c-hvt"></canvas></div>
+        </div>
+        <div class="tab-pane fade" id="p-kills">
+          <input class="form-control form-control-sm mb-2" id="kill-filter" placeholder="Filter by unit, weapon or formation">
+          <table class="table table-sm small"><thead><tr><th>Tick</th><th>Attacker</th><th>Victim</th><th>Weapon / round</th><th>Range</th></tr></thead><tbody id="kill-rows"></tbody></table>
+        </div>
+        <div class="tab-pane fade" id="p-ask">
+          <p class="small text-muted2">Questions are answered from the recorded tick log, kill feed and casualty record — each answer cites the ticks it comes from.</p>
+          <div class="d-flex flex-wrap gap-1 mb-2" id="examples"></div>
+          <div id="chat" class="vstack gap-2 mb-2"></div>
+          <form id="ask" class="input-group"><input class="form-control" id="q" placeholder="Why did Formation ALPHA lose three tanks?"><button class="btn btn-tac">Ask</button></form>
+        </div>
+        <div class="tab-pane fade" id="p-brief"><pre class="small" style="white-space:pre-wrap" id="brief"></pre><div id="advice" class="small"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/';</script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@{{ CESIUM_VERSION }}/Build/Cesium/Cesium.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script type="module" src="{% static 'js/aar.js' %}"></script>
+{% endblock %}

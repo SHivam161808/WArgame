@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Platform & weapon catalogue · AI-DSSW{% endblock %}
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="d-flex align-items-center mb-3 gap-2">
+    <div><div class="hud-font text-muted2 small">ASSET CATALOGUE</div><h2 class="hud-font mb-0">Platforms &amp; weapons</h2></div>
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-tac" id="add"><i class="bi bi-plus-lg"></i> New</button>
+      <button class="btn btn-outline-danger" id="reset"><i class="bi bi-arrow-counterclockwise"></i> Reset to defaults</button>
+    </div>
+  </div>
+  <p class="small text-muted2">Centrally administered reference data. Edits are cached by the engine and take effect at the next battle start or reset; a running exercise keeps the snapshot it started with.</p>
+  <ul class="nav nav-tabs setup-tabs mb-0"><li class="nav-item"><button class="nav-link active" data-kind="platforms">Platforms</button></li><li class="nav-item"><button class="nav-link" data-kind="weapons">Weapons</button></li></ul>
+  <div class="panel rounded-top-0"><div class="table-responsive"><table class="table table-sm align-middle mb-0 small"><thead id="head"></thead><tbody id="rows"></tbody></table></div></div>
+</div>
+<div class="modal fade" id="edit" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content panel">
+  <div class="modal-header"><h5 class="modal-title hud-font" id="edit-title">EDIT</h5></div>
+  <div class="modal-body"><div class="row g-3"><div class="col-lg-6" id="form"></div>
+    <div class="col-lg-6"><label class="form-label small">Full record (JSON)</label><textarea class="form-control mono small" id="json" rows="22"></textarea></div></div>
+    <div class="text-danger small mt-2" id="edit-err"></div></div>
+  <div class="modal-footer"><button class="btn btn-outline-danger me-auto" id="del">Delete</button><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-tac" id="save">Save</button></div>
+</div></div></div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/assets.js' %}"></script>{% endblock %}
