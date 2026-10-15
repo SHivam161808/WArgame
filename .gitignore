@@ -1,6 +1,13 @@
 .venv/
 __pycache__/
 *.pyc
-data/
 staticfiles/
 .env
+# runtime state of a local (non-Docker) install; tracked files under data/ stay tracked
+/data/pg/
+/data/pg-sock/
+/data/*.log
+/data/*.sqlite3*
+/data/.secret-key
+/data/.jwt-secret
+/data/smoke_room.json

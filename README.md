@@ -18,6 +18,18 @@ PostgreSQL for live rewind, full 3D replay and AI-assisted after-action review.
 Everything is free and open-source (requirement C-1). Requirements: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md).
 Contributor/AI guide: [`SKILL.md`](SKILL.md).
 
+## Quick start with Docker (Windows, Linux, macOS)
+
+Install Docker Desktop (Windows/macOS) or Docker Engine (Linux), then in this folder:
+
+```bash
+docker compose up -d --build    # PostgreSQL + the game; first build takes a few minutes
+```
+
+Open http://localhost:8000 and sign in as `admin` / `admin123`. No database setup: PostgreSQL runs in its own
+container with a named volume. Step-by-step guide with troubleshooting: [`docs/Docker_Setup_Guide.pdf`](docs/Docker_Setup_Guide.pdf)
+(rebuild it with `tools/make_docker_guide.py`).
+
 ## Quick start (Linux)
 
 ```bash

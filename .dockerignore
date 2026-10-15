@@ -1,0 +1,15 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.env
+staticfiles
+*.pdf
+# runtime state of a local (non-Docker) install
+data/pg
+data/pg-sock
+data/*.log
+data/*.sqlite3*
+data/.secret-key
+data/.jwt-secret
+data/smoke_room.json

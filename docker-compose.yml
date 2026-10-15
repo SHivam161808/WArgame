@@ -1,0 +1,48 @@
+# One command on Linux, Windows and macOS:   docker compose up -d     →  http://localhost:8000
+# The database runs in its own container with a named volume, so nothing has to be installed or configured on the host.
+name: wargame
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wargame
+      POSTGRES_PASSWORD: wargame
+      POSTGRES_DB: wargame
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wargame -d wargame"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build: .
+    image: wargame:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${WARGAME_PORT:-8000}:8000"
+    environment:
+      # Fixed on purpose: a host .env written for a local setup (127.0.0.1:5433) must not leak in here
+      DATABASE_URL: postgres://wargame:wargame@db:5432/wargame
+      DATA_DIR: /data
+      HOST_PORT: ${WARGAME_PORT:-8000}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ALLOWED_HOSTS: "*"
+      OFFLINE_TERRAIN: ${OFFLINE_TERRAIN:-0}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-llama3.1:8b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # reach a self-hosted LLM on the host (Linux too)
+    volumes:
+      - webdata:/data   # secret key + terrain tile cache
+
+volumes:
+  pgdata:
+  webdata:
