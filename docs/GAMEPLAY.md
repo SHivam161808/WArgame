@@ -31,7 +31,7 @@ two-room houses, big houses, open sheds) along a main road, a north–south road
 in a walled compound with the tricolour, a lake, haystacks and mud walls for cover, electric poles, water tanks.
 Doors and windows are real openings — walk in through doors, see and shoot through windows, walls stop bullets.
 
-- **Squads of 4**, BLUE vs RED. Friends join either side with the Room ID and that side's key; every empty place
+- **Squads of 10**, BLUE vs RED. Friends join either side with the Room ID and that side's key; every empty place
   is a **bot** that loots, patrols, hunts you, reacts to gunfire, takes cover-strafes, reloads and heals.
 - Everybody starts with a **pistol**. Loot lies in the rooms: Vector-9 SMG, M416, AKM, SKS marksman rifle,
   AWM sniper, S12K shotgun, RPG-7, ammunition, medkits, body armour (vest) and helmets. A killed soldier drops a

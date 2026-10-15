@@ -1,4 +1,4 @@
-"""Village Skirmish: squads of up to 4 (humans, the rest bots) fight through a procedural village.
+"""Village Skirmish: squads of up to 10 (humans, the rest bots) fight through a procedural village.
 
 PUBG-style rules: everybody starts with a pistol; rifles, SMGs, shotguns, marksman and sniper rifles, RPGs,
 ammunition, medkits, vests and helmets lie around the houses; cars, bikes, jeeps and two tanks stand parked
@@ -18,13 +18,15 @@ from .units import Unit
 from .village import BODY_R, NavGraph, Walls, inside_rect
 
 NEUT = 'NEUT'  # side of an empty vehicle
-SQUAD = 4
+SQUAD = 10  # players per side; empty places are filled by bots (cfg['squad'] overrides)
 START_WEAPON = 'pistol-p9'
 MAX_WEAPONS = 3
 SIGHT_M = 260.0
 VEHICLE_PLATFORM = {'car': 'v-car', 'bike': 'v-bike', 'jeep': 'v-jeep', 'tank': 'v-tank'}
-BOT_NAMES = {'BLUE': ['Arjun', 'Kabir', 'Vikram', 'Rohan', 'Dev', 'Ishaan', 'Aarav', 'Karan'],
-             'RED': ['Ghost', 'Viper', 'Raven', 'Jackal', 'Cobra', 'Wolf', 'Hawk', 'Shadow']}
+BOT_NAMES = {'BLUE': ['Arjun', 'Kabir', 'Vikram', 'Rohan', 'Dev', 'Ishaan', 'Aarav', 'Karan', 'Aditya', 'Nikhil',
+                      'Rahul', 'Sameer'],
+             'RED': ['Ghost', 'Viper', 'Raven', 'Jackal', 'Cobra', 'Wolf', 'Hawk', 'Shadow', 'Scorpion', 'Falcon',
+                     'Reaper', 'Python']}
 _geometry_cache: dict = {}
 
 
@@ -54,6 +56,7 @@ class Skirmish(Battle):
         self.items_dirty = True
         self._item_seq = len(self.items)
         self.spawn_k = {s: 0 for s in SIDES}
+        self.squad = max(1, int(cfg.get('squad') or SQUAD))
         self.agents = {s: BotSquad(self, s) for s in SIDES}
         self.friendly_fire = False  # bullets pass through squad mates
         self.bot_errors: list = []
@@ -87,7 +90,7 @@ class Skirmish(Battle):
     def start(self):
         for side in SIDES:
             have = sum(1 for u in self.units.values() if u.side == side and u.cls == 'INF')
-            for _ in range(max(0, SQUAD - have)):
+            for _ in range(max(0, self.squad - have)):
                 self.spawn_bot(side)
         self.status = 'RUNNING'
         self.emit({'t': 'ALERT', 'side': 'ALL', 'level': 'info', 'text': 'Match started — loot up, last squad standing wins'})
@@ -408,7 +411,7 @@ class _Bot:
                  'look', 'pitch', 'burst_on', 'burst_t', 'strafe', 'strafe_t', 'crouch', 'err', 'err_t', 'stuck',
                  'aim_base', 'look_t', 'side_t', 'item', 'hunt_t', 'unstick_t', 'unstick')
 
-    def __init__(self, seed, heading):
+    def __init__(self, seed, heading, hunter=False):
         self.rng = random.Random(seed)
         self.mode = 'LOOT'
         self.goal = None
@@ -434,7 +437,7 @@ class _Bot:
         self.look_t = 0.0
         self.side_t = 0.0
         self.item = None
-        self.hunt_t = self.rng.uniform(25, 60)
+        self.hunt_t = self.rng.uniform(10, 25) if hunter else self.rng.uniform(25, 60)
         self.unstick_t = -1.0
         self.unstick = (0.0, 0.0)
 
@@ -448,7 +451,7 @@ class BotSquad:
         self.st: dict = {}
 
     def add(self, u: Unit):
-        self.st[u.id] = _Bot(zlib.crc32(f'{self.b.seed}:{u.id}'.encode()), u.heading)
+        self.st[u.id] = _Bot(zlib.crc32(f'{self.b.seed}:{u.id}'.encode()), u.heading, hunter=self.side == 'RED')
 
     def fire_support(self):
         return None
@@ -466,6 +469,24 @@ class BotSquad:
                 b.drive[uid] = {}
                 if len(b.bot_errors) < 20:
                     b.bot_errors.append(f'{uid}: {type(e).__name__}: {e}')
+        self._callouts()
+
+    def _callouts(self):
+        """A bot in a fight calls the contact out: idle squad mates within 150 m come to search there."""
+        b = self.b
+        fights = [(b.units[uid], s) for uid, s in sorted(self.st.items())
+                  if s.mode == 'ENGAGE' and s.last_seen is not None and b.units.get(uid) is not None and b.units[uid].alive]
+        if not fights:
+            return
+        for uid, s in sorted(self.st.items()):
+            u = b.units.get(uid)
+            if u is None or not u.alive or s.mode not in ('PATROL', 'LOOT') or u.mounted_in:
+                continue
+            near = min(fights, key=lambda f: math.hypot(f[0].x - u.x, f[0].y - u.y))
+            if math.hypot(near[0].x - u.x, near[0].y - u.y) < 150:
+                s.last_seen = near[1].last_seen
+                s.item, s.goal, s.path = None, None, []
+                s.mode = 'SEARCH'
 
     # perception ---------------------------------------------------------
     def _perceive(self, u, s):
@@ -635,8 +656,10 @@ class BotSquad:
             if s.mode == 'PATROL':
                 s.hunt_t -= b.dt
                 if s.hunt_t <= 0:  # hunt: head for where an enemy roughly is
-                    s.hunt_t = s.rng.uniform(25, 50)
+                    s.hunt_t = s.rng.uniform(15, 30) if self.side == 'RED' else s.rng.uniform(25, 50)
                     foes = [e for e in b.units.values() if e.alive and e.side == enemy_of(self.side) and e.cls == 'INF']
+                    if self.side == 'RED':  # the RED squad goes looking for the human players first
+                        foes = [e for e in foes if e.avatar] or foes
                     if foes:
                         e = s.rng.choice(foes)
                         s.goal = None

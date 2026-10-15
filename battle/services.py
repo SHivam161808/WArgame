@@ -98,7 +98,7 @@ def ingest_village(scenario: Scenario, seed: int | None = None) -> dict:
 
 
 def create_skirmish(owner, theatre: str = 'punjab-asal-uttar', name: str | None = None, **opts) -> Scenario:
-    """A ready-to-open Village Skirmish scenario: 4 v 4 (bots fill), 15 minutes, 10 ticks/s."""
+    """A ready-to-open Village Skirmish scenario: 10 v 10 (bots fill), 15 minutes, 10 ticks/s."""
     t = theatre_by_id(theatre)
     s = Scenario.objects.create(
         owner=owner, name=name or f'Village Skirmish — {t.name}', mode='SKIRMISH', theatre=t.id,

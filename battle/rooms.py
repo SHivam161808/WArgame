@@ -114,7 +114,7 @@ class Room:
         if self.skirmish:
             lay = bundle.grid.meta['village']
             self.briefing = (f"VILLAGE SKIRMISH — {theatre.name}. {len(lay['buildings'])} buildings, a school, a lake and "
-                             f"{len(lay['vehicles'])} vehicles on a 600 m map. Squads of 4: empty places are taken by bots. "
+                             f"{len(lay['vehicles'])} vehicles on a 600 m map. Squads of {self.sim.squad}: empty places are taken by bots and the RED squad hunts you. "
                              "Everyone starts with a pistol — loot rifles, SMGs, shotguns, sniper rifles, RPGs, medkits, "
                              "vests and helmets from the houses. No respawns: the last squad standing wins.")
         else:
@@ -146,8 +146,9 @@ class Room:
             if p is None:
                 if player.side == 'RED' and self.scenario.red_mode == 'AI':
                     raise RoomError('RED is played by the AI Red player in this scenario')
-                if len(self.side_players(player.side)) >= 4:
-                    raise RoomError('This force already has 4 players')
+                cap = self.sim.squad if self.skirmish else 4
+                if len(self.side_players(player.side)) >= cap:
+                    raise RoomError(f'This force already has {cap} players')
                 slot = player.slot if player.slot and not self.slot_owner(player.side, player.slot) else None
                 if slot is None:
                     slot = next((f for f in FORMATION_IDS if not self.slot_owner(player.side, f)), None)

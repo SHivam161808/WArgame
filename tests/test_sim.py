@@ -386,6 +386,23 @@ def make_skirmish(village_map, seed=5):
                     g, [], {}, catalogue(), seed)
 
 
+def test_squad_size_and_red_hunts_players(village_map):
+    from sim.skirmish import Skirmish
+    lay, g = village_map
+    b = Skirmish('s', dict(theatre='punjab-asal-uttar', tick_s=0.1, max_ticks=6000, weather='CLEAR', time_of_day='DAY', squad=3),
+                 g, [], {}, catalogue(), 5)
+    b.start()
+    assert b.squad_alive() == {'BLUE': 3, 'RED': 3}
+    # a RED bot in a fight calls the contact out: an idle squad mate nearby comes to search there
+    bots = [u for u in b.units.values() if u.side == 'RED' and u.bot]
+    st = b.agents['RED'].st
+    a, m = st[bots[0].id], st[bots[1].id]
+    a.mode, a.last_seen = 'ENGAGE', (bots[0].x + 40, bots[0].y, b.sim_time)
+    m.mode = 'PATROL'
+    b.agents['RED']._callouts()
+    assert m.mode == 'SEARCH' and m.last_seen == a.last_seen
+
+
 def test_village_layout_is_playable(village_map):
     from sim import village as V
     from sim.theatres import G_IDX
@@ -485,7 +502,8 @@ def test_anyone_can_drive_a_parked_vehicle(village_map):
 def test_bot_match_finishes_with_a_winner(village_map):
     b = make_skirmish(village_map, seed=9)
     b.start()
-    assert b.squad_alive() == {'BLUE': 4, 'RED': 4}
+    assert b.squad_alive() == {'BLUE': 10, 'RED': 10}
+    assert len({u.name for u in b.units.values() if u.cls == 'INF'}) == 20
     while b.status == 'RUNNING':
         b.step()
     assert b.outcome in ('BLUE', 'RED', 'DRAW') and not b.bot_errors

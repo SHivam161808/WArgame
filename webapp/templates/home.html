@@ -16,12 +16,23 @@
           <span class="theatre-chip"><i class="bi bi-water"></i> Rann of Kutch · Marsh</span>
         </div>
         <div class="row g-3 mt-4 small text-muted2">
-          <div class="col-sm-4"><i class="bi bi-people text-blue"></i> 4 v 4 rooms with AI fill-in</div>
+          <div class="col-sm-4"><i class="bi bi-people text-blue"></i> 4 v 4 armour · 10 v 10 village, AI fill-in</div>
           <div class="col-sm-4"><i class="bi bi-joystick text-amber"></i> Drive &amp; gun any vehicle</div>
           <div class="col-sm-4"><i class="bi bi-cpu text-red"></i> AI Red agent &amp; advisor</div>
         </div>
       </div>
       <div class="col-lg-5">
+        <div class="panel mb-3">
+          <div class="panel-head"><i class="bi bi-house-door"></i> Village Battle · 10 v 10</div>
+          <div class="panel-body">
+            <div class="small text-muted2 mb-3">A 600 m village with houses, fields, roads, a lake, bikes, cars and jeeps. Loot and swap guns (1–3), 10 RED bots hunt you, empty BLUE places are filled by bots.</div>
+            {% if user.is_staff %}
+            <button class="btn btn-success btn-lg w-100 hud-font" id="new-skirmish" onclick="newSkirmish()"><i class="bi bi-play-fill"></i> Play Village Battle</button>
+            {% else %}
+            <a class="btn btn-success btn-lg w-100 hud-font" href="{% url 'login' %}?next=/"><i class="bi bi-box-arrow-in-right"></i> Log in to start a Village Battle</a>
+            {% endif %}
+          </div>
+        </div>
         <div class="panel">
           <div class="panel-head"><i class="bi bi-door-open"></i> Join a battle</div>
           <div class="panel-body">
@@ -42,7 +53,7 @@
 {% endblock %}
 {% block scripts %}
 <script type="module">
-import { api } from '{% static "js/api.js" %}';
+import { api, toast } from '{% static "js/api.js" %}';
 const $ = (s) => document.querySelector(s);
 $('#call').value = localStorage.getItem('wg_callsign') || '';
 $('#join').onsubmit = async (e) => {
@@ -54,6 +65,16 @@ $('#join').onsubmit = async (e) => {
     localStorage.setItem(`wg_token_${r.room_code}`, r.token);
     location.href = `/play/${r.room_code}/`;
   } catch (ex) { $('#err').textContent = ex.message; }
+};
+window.newSkirmish = async () => {
+  const b = $('#new-skirmish');
+  b.disabled = true; b.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Building the village…';
+  try {
+    const r = await api('skirmish/', { method: 'POST', body: { callsign: $('#call').value.trim() || undefined } });
+    localStorage.setItem(`wg_token_${r.room_code}`, r.token);
+    toast(`Room ${r.room_code} · friends join BLUE with key ${r.keys.BLUE}`, 'ok', 8000);
+    location.href = r.play_url;
+  } catch (ex) { toast(ex.message, 'crit'); b.disabled = false; b.innerHTML = '<i class="bi bi-play-fill"></i> Play Village Battle'; }
 };
 </script>
 {% endblock %}

@@ -447,7 +447,8 @@ def generate(seed: int, base_elev: float = 200.0) -> dict:
 
     spawns = {}
     for s, (sx, sy) in SPAWN.items():
-        spawns[s] = [[round(sx + dx, 2), round(sy + dy, 2)] for dx, dy in ((0, 0), (4, 2), (-3, 4), (2, -4), (-5, -2), (6, -3))]
+        spawns[s] = [[round(sx + dx, 2), round(sy + dy, 2)] for dx, dy in ((0, 0), (4, 2), (-3, 4), (2, -4), (-5, -2), (6, -3),
+                                                                                (-8, 3), (8, 2), (-2, 8), (3, 7), (-7, -6), (9, -7))]
     return dict(seed=seed, play_half=PLAY_HALF, world_half=WORLD_HALF, base=base_elev, phase=[round(p, 4) for p in ph],
                 roads=roads, lake=lake, buildings=buildings, walls=[[round(v, 3) if isinstance(v, float) else v for v in w] for w in walls],
                 props=props, vehicles=vehicles, loot=loot, spawns=spawns, wall_t=WALL_T)
